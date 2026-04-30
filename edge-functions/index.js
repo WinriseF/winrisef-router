@@ -24,8 +24,8 @@ const ROUTER_PARAMS = new Set([
 ]);
 
 const DEFAULT_CN_WEIGHTS = {
-  edge: 65,
-  v: 25,
+  edge: 45,
+  v: 45,
   n: 10
 };
 
