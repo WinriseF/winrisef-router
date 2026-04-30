@@ -24,15 +24,15 @@ const ROUTER_PARAMS = new Set([
 ]);
 
 const DEFAULT_CN_WEIGHTS = {
-  edge: 45,
-  v: 45,
-  n: 10
+  edge: 20,
+  v: 35,
+  n: 45
 };
 
 const DEFAULT_GLOBAL_WEIGHTS = {
-  v: 50,
-  n: 35,
-  edge: 15
+  v: 20,
+  n: 45,
+  edge: 35
 };
 
 function envFlag(env, key, defaultValue = false) {
@@ -265,7 +265,7 @@ async function isOriginHealthy(origin, env) {
       }
     });
 
-    return response.status >= 200 && response.status < 500;
+    return response.status >= 200 && response.status < 400;
   } catch (_) {
     return false;
   }
