@@ -1,0 +1,7 @@
+{
+  "name": "winrisef-router",
+  "private": true,
+  "scripts": {
+    "build": "echo ok"
+  }
+}
