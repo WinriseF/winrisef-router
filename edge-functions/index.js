@@ -1,8 +1,8 @@
 const ORIGINS = {
-  edge: {
-    key: "edge",
+  e: {
+    key: "e",
     name: "edgeone",
-    base: "https://edge.winrisef.top"
+    base: "https://e.winrisef.top"
   },
   v: {
     key: "v",
@@ -24,15 +24,15 @@ const ROUTER_PARAMS = new Set([
 ]);
 
 const DEFAULT_CN_WEIGHTS = {
-  edge: 20,
-  v: 35,
-  n: 45
+  e: 50,
+  v: 25,
+  n: 25
 };
 
 const DEFAULT_GLOBAL_WEIGHTS = {
-  v: 20,
-  n: 45,
-  edge: 35
+  e: 30,
+  v: 35,
+  n: 35
 };
 
 function envFlag(env, key, defaultValue = false) {
@@ -200,7 +200,7 @@ function buildCandidateList(request, env) {
   if (method !== "GET" && method !== "HEAD") {
     return uniqueOrigins([
       ORIGINS.v,
-      ORIGINS.edge,
+      ORIGINS.e,
       ORIGINS.n
     ]).filter((origin) => !isDisabled(origin, disabled));
   }
@@ -211,7 +211,7 @@ function buildCandidateList(request, env) {
       picked,
       ...weightedOrder,
       ORIGINS.v,
-      ORIGINS.edge,
+      ORIGINS.e,
       ORIGINS.n
     ]).filter((origin) => !isDisabled(origin, disabled));
   }
@@ -220,7 +220,7 @@ function buildCandidateList(request, env) {
     picked,
     ...weightedOrder,
     ORIGINS.v,
-    ORIGINS.edge,
+    ORIGINS.e,
     ORIGINS.n
   ]).filter((origin) => !isDisabled(origin, disabled));
 }
