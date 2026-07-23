@@ -20,7 +20,7 @@
 ## 源站配置
 
 默认源站：
-- `edge.winrisef.top` (EdgeOne)
+- `e.winrisef.top` (EdgeOne)
 - `v.winrisef.top` (Vercel)
 - `n.winrisef.top` (Netlify)
 
@@ -28,8 +28,8 @@
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| `CN_WEIGHTS` | 中国地区权重 | `edge:65,v:25,n:10` |
-| `GLOBAL_WEIGHTS` | 全球权重 | `v:50,n:35,edge:15` |
+| `CN_WEIGHTS` | 中国地区权重 | `e:50,v:25,n:25` |
+| `GLOBAL_WEIGHTS` | 全球权重 | `e:30,v:35,n:35` |
 | `DISABLED_ORIGINS` | 禁用的源站 | - |
 | `STICKY_ENABLED` | 启用粘性会话 | `true` |
 | `HEALTH_CHECK` | 启用健康检查 | `true` |
@@ -39,10 +39,12 @@
 | 参数 | 说明 |
 |------|------|
 | `?debug=1` 或 `?_router_debug=1` | 返回 JSON 调试信息 |
-| `?to=edge\|v\|n` | 强制路由到指定源站 |
+| `?to=e\|v\|n` | 强制路由到指定源站 |
 | `?_router_clear=1` | 清除路由 Cookie |
 
 响应头包含路由信息：`X-Routed-Origin`, `X-Router-Healthy` 等。
+
+路由器使用 `HEAD /healthz` 探测 `e`、`v`、`n`，仅将 `204` 视为健康；所有候选源站均不可用时返回 `503`。
 
 ## 目录结构
 

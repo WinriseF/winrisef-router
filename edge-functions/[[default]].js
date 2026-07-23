@@ -1,8 +1,8 @@
 const ORIGINS = {
-  edge: {
-    key: "edge",
+  e: {
+    key: "e",
     name: "edgeone",
-    base: "https://edge.winrisef.top"
+    base: "https://e.winrisef.top"
   },
   v: {
     key: "v",
@@ -24,15 +24,15 @@ const ROUTER_PARAMS = new Set([
 ]);
 
 const DEFAULT_CN_WEIGHTS = {
-  edge: 65,
+  e: 50,
   v: 25,
-  n: 10
+  n: 25
 };
 
 const DEFAULT_GLOBAL_WEIGHTS = {
-  v: 50,
-  n: 35,
-  edge: 15
+  e: 30,
+  v: 35,
+  n: 35
 };
 
 function envFlag(env, key, defaultValue = false) {
@@ -200,7 +200,7 @@ function buildCandidateList(request, env) {
   if (method !== "GET" && method !== "HEAD") {
     return uniqueOrigins([
       ORIGINS.v,
-      ORIGINS.edge,
+      ORIGINS.e,
       ORIGINS.n
     ]).filter((origin) => !isDisabled(origin, disabled));
   }
@@ -211,7 +211,7 @@ function buildCandidateList(request, env) {
       picked,
       ...weightedOrder,
       ORIGINS.v,
-      ORIGINS.edge,
+      ORIGINS.e,
       ORIGINS.n
     ]).filter((origin) => !isDisabled(origin, disabled));
   }
@@ -220,7 +220,7 @@ function buildCandidateList(request, env) {
     picked,
     ...weightedOrder,
     ORIGINS.v,
-    ORIGINS.edge,
+    ORIGINS.e,
     ORIGINS.n
   ]).filter((origin) => !isDisabled(origin, disabled));
 }
@@ -249,7 +249,7 @@ async function isOriginHealthy(origin, env) {
   const timeout = envNumber(env, "HEALTH_TIMEOUT_MS", 1000);
 
   const target = new URL(origin.base);
-  target.pathname = "/";
+  target.pathname = "/healthz";
   target.search = "";
 
   try {
@@ -265,7 +265,7 @@ async function isOriginHealthy(origin, env) {
       }
     });
 
-    return response.status >= 200 && response.status < 500;
+    return response.status === 204;
   } catch (_) {
     return false;
   }
@@ -285,10 +285,24 @@ async function chooseOrigin(request, env) {
   }
 
   return {
-    origin: candidates[0] || ORIGINS.v,
+    origin: null,
     healthy: false,
     candidates
   };
+}
+
+function createUnavailableResponse(request) {
+  const body = request.method.toUpperCase() === "HEAD" ? null : "No healthy origin";
+
+  return new Response(body, {
+    status: 503,
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+      "Retry-After": "10",
+      "X-Router-Version": "2026-07-23.1",
+      "X-Router-Healthy": "0"
+    }
+  });
 }
 
 function createRedirectResponse(request, result, targetUrl, env) {
@@ -301,7 +315,7 @@ function createRedirectResponse(request, result, targetUrl, env) {
   headers.set("Location", targetUrl.toString());
   headers.set("Cache-Control", "no-store, max-age=0");
   headers.set("Vary", "Cookie");
-  headers.set("X-Router-Version", "2026-04-30.1");
+  headers.set("X-Router-Version", "2026-07-23.1");
   headers.set("X-Routed-Origin", result.origin.name);
   headers.set("X-Routed-Origin-Key", result.origin.key);
   headers.set("X-Router-Healthy", result.healthy ? "1" : "0");
@@ -322,7 +336,7 @@ function createDebugResponse(request, result, targetUrl) {
     JSON.stringify(
       {
         ok: true,
-        routerVersion: "2026-04-30.1",
+        routerVersion: "2026-07-23.1",
         method: request.method,
         country: getCountry(request),
         selected: {
@@ -376,6 +390,11 @@ export default async function onRequest(context) {
   }
 
   const result = await chooseOrigin(request, env);
+
+  if (!result.origin) {
+    return createUnavailableResponse(request);
+  }
+
   const targetUrl = buildTargetUrl(request, result.origin);
 
   if (url.searchParams.get("debug") === "1" || url.searchParams.get("_router_debug") === "1") {
