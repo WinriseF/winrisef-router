@@ -1,7 +1,9 @@
 {
   "name": "winrisef-router",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "echo ok"
+    "build": "echo ok",
+    "test": "node --test"
   }
 }

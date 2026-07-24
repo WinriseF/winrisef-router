@@ -31,6 +31,7 @@
 | `CN_WEIGHTS` | 中国地区权重 | `e:50,v:25,n:25` |
 | `GLOBAL_WEIGHTS` | 全球权重 | `e:30,v:35,n:35` |
 | `DISABLED_ORIGINS` | 禁用的源站 | - |
+| `FALLBACK_ORIGIN` | 健康检查均失败时直接回退的源站 | `e` |
 | `STICKY_ENABLED` | 启用粘性会话 | `true` |
 | `HEALTH_CHECK` | 启用健康检查 | `true` |
 
@@ -44,7 +45,7 @@
 
 响应头包含路由信息：`X-Routed-Origin`, `X-Router-Healthy` 等。
 
-路由器使用 `HEAD /healthz` 探测 `e`、`v`、`n`，仅将 `204` 视为健康；所有候选源站均不可用时返回 `503`。
+路由器并发使用 `HEAD /healthz` 探测 `e`、`v`、`n`，接受正常的 `2xx/3xx` 响应；源站未提供该端点（`404/405`）时回退探测首页。探测完成后仍按候选优先级选择第一个健康源站。所有探针均失败或没有候选源站时，直接跳转到 `FALLBACK_ORIGIN`（默认 `e.winrisef.top`），并通过 `X-Router-Healthy: 0` 标记降级状态。
 
 ## 目录结构
 

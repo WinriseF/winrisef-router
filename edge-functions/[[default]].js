@@ -35,6 +35,8 @@ const DEFAULT_GLOBAL_WEIGHTS = {
   n: 35
 };
 
+const ROUTER_VERSION = "2026-07-24.1";
+
 function envFlag(env, key, defaultValue = false) {
   const value = String(env?.[key] ?? "").trim().toLowerCase();
 
@@ -79,6 +81,11 @@ function parseDisabledOrigins(env) {
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean)
   );
+}
+
+function getFallbackOrigin(env) {
+  const key = String(env?.FALLBACK_ORIGIN || "e").trim().toLowerCase();
+  return ORIGINS[key] || ORIGINS.e;
 }
 
 function getCountry(request) {
@@ -246,14 +253,14 @@ async function isOriginHealthy(origin, env) {
     return true;
   }
 
-  const timeout = envNumber(env, "HEALTH_TIMEOUT_MS", 1000);
+  const timeout = envNumber(env, "HEALTH_TIMEOUT_MS", 2500);
 
-  const target = new URL(origin.base);
-  target.pathname = "/healthz";
-  target.search = "";
+  async function probe(pathname) {
+    const target = new URL(origin.base);
+    target.pathname = pathname;
+    target.search = "";
 
-  try {
-    const response = await fetch(target.toString(), {
+    return fetch(target.toString(), {
       method: "HEAD",
       redirect: "manual",
       eo: {
@@ -264,8 +271,23 @@ async function isOriginHealthy(origin, env) {
         }
       }
     });
+  }
 
-    return response.status === 204;
+  try {
+    const response = await probe("/healthz");
+
+    if (response.status >= 200 && response.status < 400) {
+      return true;
+    }
+
+    // Some origins do not expose a dedicated health endpoint. A missing or
+    // unsupported /healthz should not make an otherwise reachable site dead.
+    if (response.status === 404 || response.status === 405) {
+      const fallbackResponse = await probe("/");
+      return fallbackResponse.status >= 200 && fallbackResponse.status < 400;
+    }
+
+    return false;
   } catch (_) {
     return false;
   }
@@ -273,36 +295,26 @@ async function isOriginHealthy(origin, env) {
 
 async function chooseOrigin(request, env) {
   const candidates = buildCandidateList(request, env);
+  const healthResults = await Promise.all(
+    candidates.map((origin) => isOriginHealthy(origin, env))
+  );
+  const healthyIndex = healthResults.findIndex(Boolean);
 
-  for (const origin of candidates) {
-    if (await isOriginHealthy(origin, env)) {
-      return {
-        origin,
-        healthy: true,
-        candidates
-      };
-    }
+  if (healthyIndex !== -1) {
+    return {
+      origin: candidates[healthyIndex],
+      healthy: true,
+      candidates
+    };
   }
 
   return {
-    origin: null,
+    // If no health probe succeeds, use the configured default origin instead
+    // of returning 503 or randomly selecting an unchecked candidate.
+    origin: getFallbackOrigin(env),
     healthy: false,
     candidates
   };
-}
-
-function createUnavailableResponse(request) {
-  const body = request.method.toUpperCase() === "HEAD" ? null : "No healthy origin";
-
-  return new Response(body, {
-    status: 503,
-    headers: {
-      "Cache-Control": "no-store, max-age=0",
-      "Retry-After": "10",
-      "X-Router-Version": "2026-07-23.1",
-      "X-Router-Healthy": "0"
-    }
-  });
 }
 
 function createRedirectResponse(request, result, targetUrl, env) {
@@ -315,7 +327,7 @@ function createRedirectResponse(request, result, targetUrl, env) {
   headers.set("Location", targetUrl.toString());
   headers.set("Cache-Control", "no-store, max-age=0");
   headers.set("Vary", "Cookie");
-  headers.set("X-Router-Version", "2026-07-23.1");
+  headers.set("X-Router-Version", ROUTER_VERSION);
   headers.set("X-Routed-Origin", result.origin.name);
   headers.set("X-Routed-Origin-Key", result.origin.key);
   headers.set("X-Router-Healthy", result.healthy ? "1" : "0");
@@ -336,7 +348,7 @@ function createDebugResponse(request, result, targetUrl) {
     JSON.stringify(
       {
         ok: true,
-        routerVersion: "2026-07-23.1",
+        routerVersion: ROUTER_VERSION,
         method: request.method,
         country: getCountry(request),
         selected: {
@@ -390,11 +402,6 @@ export default async function onRequest(context) {
   }
 
   const result = await chooseOrigin(request, env);
-
-  if (!result.origin) {
-    return createUnavailableResponse(request);
-  }
-
   const targetUrl = buildTargetUrl(request, result.origin);
 
   if (url.searchParams.get("debug") === "1" || url.searchParams.get("_router_debug") === "1") {
