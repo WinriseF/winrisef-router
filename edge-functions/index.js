@@ -35,8 +35,6 @@ const DEFAULT_GLOBAL_WEIGHTS = {
   n: 35
 };
 
-const ROUTER_VERSION = "2026-07-24.1";
-
 function envFlag(env, key, defaultValue = false) {
   const value = String(env?.[key] ?? "").trim().toLowerCase();
 
@@ -81,11 +79,6 @@ function parseDisabledOrigins(env) {
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean)
   );
-}
-
-function getFallbackOrigin(env) {
-  const key = String(env?.FALLBACK_ORIGIN || "e").trim().toLowerCase();
-  return ORIGINS[key] || ORIGINS.e;
 }
 
 function getCountry(request) {
@@ -253,14 +246,14 @@ async function isOriginHealthy(origin, env) {
     return true;
   }
 
-  const timeout = envNumber(env, "HEALTH_TIMEOUT_MS", 2500);
+  const timeout = envNumber(env, "HEALTH_TIMEOUT_MS", 1000);
 
-  async function probe(pathname) {
-    const target = new URL(origin.base);
-    target.pathname = pathname;
-    target.search = "";
+  const target = new URL(origin.base);
+  target.pathname = "/";
+  target.search = "";
 
-    return fetch(target.toString(), {
+  try {
+    const response = await fetch(target.toString(), {
       method: "HEAD",
       redirect: "manual",
       eo: {
@@ -271,23 +264,8 @@ async function isOriginHealthy(origin, env) {
         }
       }
     });
-  }
 
-  try {
-    const response = await probe("/healthz");
-
-    if (response.status >= 200 && response.status < 400) {
-      return true;
-    }
-
-    // Some origins do not expose a dedicated health endpoint. A missing or
-    // unsupported /healthz should not make an otherwise reachable site dead.
-    if (response.status === 404 || response.status === 405) {
-      const fallbackResponse = await probe("/");
-      return fallbackResponse.status >= 200 && fallbackResponse.status < 400;
-    }
-
-    return false;
+    return response.status >= 200 && response.status < 400;
   } catch (_) {
     return false;
   }
@@ -295,23 +273,19 @@ async function isOriginHealthy(origin, env) {
 
 async function chooseOrigin(request, env) {
   const candidates = buildCandidateList(request, env);
-  const healthResults = await Promise.all(
-    candidates.map((origin) => isOriginHealthy(origin, env))
-  );
-  const healthyIndex = healthResults.findIndex(Boolean);
 
-  if (healthyIndex !== -1) {
-    return {
-      origin: candidates[healthyIndex],
-      healthy: true,
-      candidates
-    };
+  for (const origin of candidates) {
+    if (await isOriginHealthy(origin, env)) {
+      return {
+        origin,
+        healthy: true,
+        candidates
+      };
+    }
   }
 
   return {
-    // If no health probe succeeds, use the configured default origin instead
-    // of returning 503 or randomly selecting an unchecked candidate.
-    origin: getFallbackOrigin(env),
+    origin: candidates[0] || ORIGINS.v,
     healthy: false,
     candidates
   };
@@ -327,7 +301,7 @@ function createRedirectResponse(request, result, targetUrl, env) {
   headers.set("Location", targetUrl.toString());
   headers.set("Cache-Control", "no-store, max-age=0");
   headers.set("Vary", "Cookie");
-  headers.set("X-Router-Version", ROUTER_VERSION);
+  headers.set("X-Router-Version", "2026-04-30.1");
   headers.set("X-Routed-Origin", result.origin.name);
   headers.set("X-Routed-Origin-Key", result.origin.key);
   headers.set("X-Router-Healthy", result.healthy ? "1" : "0");
@@ -348,7 +322,7 @@ function createDebugResponse(request, result, targetUrl) {
     JSON.stringify(
       {
         ok: true,
-        routerVersion: ROUTER_VERSION,
+        routerVersion: "2026-04-30.1",
         method: request.method,
         country: getCountry(request),
         selected: {

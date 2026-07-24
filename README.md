@@ -20,7 +20,7 @@
 ## 源站配置
 
 默认源站：
-- `e.winrisef.top` (EdgeOne)
+- `edge.winrisef.top` (EdgeOne)
 - `v.winrisef.top` (Vercel)
 - `n.winrisef.top` (Netlify)
 
@@ -28,10 +28,9 @@
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| `CN_WEIGHTS` | 中国地区权重 | `e:50,v:25,n:25` |
-| `GLOBAL_WEIGHTS` | 全球权重 | `e:30,v:35,n:35` |
+| `CN_WEIGHTS` | 中国地区权重 | `edge:65,v:25,n:10` |
+| `GLOBAL_WEIGHTS` | 全球权重 | `v:50,n:35,edge:15` |
 | `DISABLED_ORIGINS` | 禁用的源站 | - |
-| `FALLBACK_ORIGIN` | 健康检查均失败时直接回退的源站 | `e` |
 | `STICKY_ENABLED` | 启用粘性会话 | `true` |
 | `HEALTH_CHECK` | 启用健康检查 | `true` |
 
@@ -40,12 +39,10 @@
 | 参数 | 说明 |
 |------|------|
 | `?debug=1` 或 `?_router_debug=1` | 返回 JSON 调试信息 |
-| `?to=e\|v\|n` | 强制路由到指定源站 |
+| `?to=edge\|v\|n` | 强制路由到指定源站 |
 | `?_router_clear=1` | 清除路由 Cookie |
 
 响应头包含路由信息：`X-Routed-Origin`, `X-Router-Healthy` 等。
-
-路由器并发使用 `HEAD /healthz` 探测 `e`、`v`、`n`，接受正常的 `2xx/3xx` 响应；源站未提供该端点（`404/405`）时回退探测首页。探测完成后仍按候选优先级选择第一个健康源站。所有探针均失败或没有候选源站时，直接跳转到 `FALLBACK_ORIGIN`（默认 `e.winrisef.top`），并通过 `X-Router-Healthy: 0` 标记降级状态。
 
 ## 目录结构
 
