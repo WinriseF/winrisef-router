@@ -20,7 +20,7 @@
 ## 源站配置
 
 默认源站：
-- `edge.winrisef.top` (EdgeOne)
+- `e.winrisef.top` (EdgeOne)
 - `v.winrisef.top` (Vercel)
 - `n.winrisef.top` (Netlify)
 

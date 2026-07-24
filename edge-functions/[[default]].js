@@ -2,7 +2,7 @@ const ORIGINS = {
   edge: {
     key: "edge",
     name: "edgeone",
-    base: "https://edge.winrisef.top"
+    base: "https://e.winrisef.top"
   },
   v: {
     key: "v",
@@ -248,11 +248,11 @@ async function isOriginHealthy(origin, env) {
 
   const timeout = envNumber(env, "HEALTH_TIMEOUT_MS", 1000);
 
-  const target = new URL(origin.base);
-  target.pathname = "/";
-  target.search = "";
+  async function probe(pathname) {
+    const target = new URL(origin.base);
+    target.pathname = pathname;
+    target.search = "";
 
-  try {
     const response = await fetch(target.toString(), {
       method: "HEAD",
       redirect: "manual",
@@ -265,7 +265,17 @@ async function isOriginHealthy(origin, env) {
       }
     });
 
-    return response.status >= 200 && response.status < 500;
+    if (response.status < 200 || response.status >= 500) {
+      throw new Error("Unhealthy origin response");
+    }
+  }
+
+  try {
+    await Promise.any([
+      probe("/"),
+      probe("/healthz")
+    ]);
+    return true;
   } catch (_) {
     return false;
   }
@@ -273,11 +283,12 @@ async function isOriginHealthy(origin, env) {
 
 async function chooseOrigin(request, env) {
   const candidates = buildCandidateList(request, env);
+  const healthChecks = candidates.map((origin) => isOriginHealthy(origin, env));
 
-  for (const origin of candidates) {
-    if (await isOriginHealthy(origin, env)) {
+  for (let index = 0; index < candidates.length; index += 1) {
+    if (await healthChecks[index]) {
       return {
-        origin,
+        origin: candidates[index],
         healthy: true,
         candidates
       };
